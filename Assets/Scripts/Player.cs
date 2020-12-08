@@ -43,7 +43,7 @@ public class Player : PlayerBehavior
         // Scale the speed to normalize for processors
         translation *= speed * Time.deltaTime;
 
-        // Move the object by the given translation
+        // Move the player by the given translation
         transform.position += translation;
 
         // Just a random rotation on all axis
