@@ -2,17 +2,25 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Mirror;
+using System;
+using UnityEngine.InputSystem;
 
 public class PlayerMovementController : NetworkBehaviour
 {
-
-    // How much force to apply towards move direction
+    #region Serialized.
+    // How much force to apply towards move direction.
     [Tooltip("How much force to apply towards move direction.")]
     [SerializeField]
-    private float movementSpeed = 5f;
+    private float _directionalForce = 1f;
+    #endregion
 
-    // Store last input so we don't have to send the input every frame
-    private Vector2 previousInput;
+    #region Private.
+    // Rigidbody on this object.
+    private Rigidbody _rigidbody;
+    // ReactivePhysicsObject on this object
+    private ReactivePhysicsObject _rpo;
+
+    private Vector2 inputVector;
 
     // Reference to PlayerControls (and if it doesn't exist already make it exist)
     private PlayerControls controls;
@@ -26,51 +34,32 @@ public class PlayerMovementController : NetworkBehaviour
             }
         }
     }
-
-    // Rigidbody on this object.
-    private Rigidbody _rigidbody;
-
-    // ReactivePhysicsObject on this object
-    private ReactivePhysicsObject _rpo;
+    #endregion
 
     public override void OnStartAuthority()
     {
-        enabled = true;
-
         base.OnStartAuthority();
         _rigidbody = GetComponent<Rigidbody>();
         _rpo = GetComponent<ReactivePhysicsObject>();
 
-        Controls.Player.Move.performed += ctx => SetMovement(ctx.ReadValue<Vector2>());
-        Controls.Player.Move.canceled += ctx => ResetMovement();
+        // += means subscribe to event so when the player move is performed we want to get the Vector2 value
+        Controls.Player.Move.performed += ctx => OnMove(ctx.ReadValue<Vector2>());
+
+        Controls.Player.Move.canceled += ctx => OnMove(ctx.ReadValue<Vector2>());
+    }
+
+    private void OnMove(Vector2 context)
+    {
+        inputVector = context;
+        Debug.Log($"Move input: {inputVector}");
     }
 
     public override void OnStartServer()
     {
         base.OnStartServer();
         _rigidbody = GetComponent<Rigidbody>();
-    }
 
-    private void FixedUpdate()
-    {
-        if (base.hasAuthority)
-            CheckMove();
     }
-
-    [Client]
-    private void SetMovement(Vector2 movement)
-    {
-        previousInput = movement;
-    }
-
-    [Client]
-    private void ResetMovement()
-    {
-        previousInput = Vector2.zero;
-    }
-
-    // The client callback tag means the server won't mess around with it
-    [ClientCallback]
 
     private void OnEnable()
     {
@@ -82,13 +71,22 @@ public class PlayerMovementController : NetworkBehaviour
         Controls.Disable();
     }
 
+    private void FixedUpdate()
+    {
+        if (base.hasAuthority)
+            CheckMove();
+    }
+
     // Checks if the client wants to move.
     private void CheckMove()
     {
+        float xAxis = inputVector.x;
+        float zAxis = inputVector.y;
+
         Vector3 direction = new Vector3(
-            previousInput.x,
+            xAxis,
             0f,
-            previousInput.y
+            zAxis
             );
 
         if (direction == Vector3.zero)
@@ -106,23 +104,22 @@ public class PlayerMovementController : NetworkBehaviour
     // Applies an input direction to the rigidbody.
     private void ProcessInput(Vector3 input)
     {
+        // Debug.Log("in ProcessInput method. Input is " + input);
+
+
         //Add force first.
-        input *= movementSpeed;
+        input *= _directionalForce;
         //Add gravity to help keep the object dowm.
         // input += Physics.gravity * 3f;
 
-        Vector3 zMov = this.transform.right;
-        Vector3 xMov = this.transform.forward;
-        zMov.y = 0f;
-        xMov.y = 0f;
-
-        Vector3 movement = zMov.normalized * previousInput.x + xMov * previousInput.y;
-
         //Apply to rigidbody.
-        _rigidbody.AddForce(movement, ForceMode.Force);
+        // _rigidbody.AddForce(input, ForceMode.Force);
+
+        _rigidbody.MovePosition(transform.position + Time.deltaTime *
+                transform.TransformDirection(input));
     }
 
-    // Tells the server which inputs to use
+    // Tells the server which inputs to move.
     [Command]
     private void CmdSendInput(Vector3 input)
     {

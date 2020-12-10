@@ -17,6 +17,13 @@ public class PlayerCameraController : NetworkBehaviour
     // We need a reference to the cinemachine virtual camera because we need to change the values on it later
     [SerializeField] private CinemachineVirtualCamera virtualCamera = null;
 
+    // max angular velocity of the rigidbody (how fast it can spin)
+    [SerializeField]
+    private float maxAngularVelocity;
+
+    private float xLookAxis;
+
+
     // Get player controls from the new unity controls system
     private PlayerControls controls;
     private PlayerControls Controls
@@ -64,6 +71,12 @@ public class PlayerCameraController : NetworkBehaviour
         _rigidbody = GetComponent<Rigidbody>();
     }
 
+    private void FixedUpdate()
+    {
+        if (base.hasAuthority)
+            RotatePlayer();
+    }
+
 
     // The client callback tag means the server won't mess around with it
     [ClientCallback]
@@ -94,11 +107,23 @@ public class PlayerCameraController : NetworkBehaviour
         // Send the data to the transposer
         transposer.m_FollowOffset.y = followOffset;
 
-        Quaternion deltaRotation = Quaternion.Euler(0f, lookAxis.x * cameraVelocity.x * fixedDeltaTime, 0f);
-
-
-        _rigidbody.maxAngularVelocity = 20f;
+        
         // Rotate the player on the Y axis only
-        _rigidbody.AddTorque(0f, lookAxis.x * cameraVelocity.x * fixedDeltaTime, 0f);
+        //_rigidbody.AddRelativeTorque(0f, lookAxis.x * cameraVelocity.x * Time.fixedDeltaTime, 0f);
+
+
+        xLookAxis = lookAxis.x;
+        Debug.Log($"lookAxis is  {lookAxis} and xLookAxis is {xLookAxis}");
     }
+
+    private void RotatePlayer()
+    {
+        Quaternion deltaRotation = Quaternion.Euler(0f, xLookAxis * cameraVelocity.x * Time.fixedDeltaTime, 0f);
+
+        _rigidbody.maxAngularVelocity = maxAngularVelocity;
+        // _rigidbody.AddTorque(0f, xLookAxis * cameraVelocity.x * Time.fixedDeltaTime, 0f);
+
+        _rigidbody.AddTorque(transform.up * xLookAxis);
+    }
+
 }
