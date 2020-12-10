@@ -9,17 +9,15 @@ public class PlayerCameraController : NetworkBehaviour
     [Header("Camera")]
     [SerializeField] private Vector2 maxFollowOffset = new Vector2(-1f, 6f);
     // X and Y velocity of the camera
-    [SerializeField] private Vector2 cameraVelocity = new Vector2(4f, 0.25f);
+    [SerializeField] private Vector2 cameraVelocity = new Vector2(10f, 0.25f);
     // Rigidbody on this object.
     private Rigidbody _rigidbody;
     // ReactivePhysicsObject on this object
     private ReactivePhysicsObject _rpo;
     // We need a reference to the cinemachine virtual camera because we need to change the values on it later
-    [SerializeField] private CinemachineVirtualCamera virtualCamera = null;
+    [SerializeField] private CinemachineFreeLook virtualCamera = null;
 
-    // max angular velocity of the rigidbody (how fast it can spin)
-    [SerializeField]
-    private float maxAngularVelocity;
+
 
     private float xLookAxis;
 
@@ -38,7 +36,7 @@ public class PlayerCameraController : NetworkBehaviour
     }
 
     // This is a special cinemachine component that we get from the virtual camera
-    private CinemachineTransposer transposer;
+    //private CinemachineOrbitalTransposer orbitalTransposer;
 
     // Overriding OnStartAuthority which comes from NetworkBehavior
     // This gets called on the object that has authority over this game object
@@ -51,7 +49,7 @@ public class PlayerCameraController : NetworkBehaviour
         _rpo = GetComponent<ReactivePhysicsObject>();
 
         // Get our transposer from the virtual camera
-        transposer = virtualCamera.GetCinemachineComponent<CinemachineTransposer>();
+        //orbitalTransposer = virtualCamera.GetCinemachineComponent<CinemachineOrbitalTransposer>();
 
         // Set the camera to active
         virtualCamera.gameObject.SetActive(true);
@@ -60,6 +58,7 @@ public class PlayerCameraController : NetworkBehaviour
 
         // += means subscribe to event so when the player look is performed we want to get the Vector2 value
         controls.Player.Look.performed += ctx => Look(ctx.ReadValue<Vector2>());
+        controls.Player.Look.canceled += ctx => Look(ctx.ReadValue<Vector2>());
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
@@ -94,36 +93,16 @@ public class PlayerCameraController : NetworkBehaviour
     // Actual logic for moving the camera
     private void Look(Vector2 lookAxis)
     {
-        // We use deltaTime twice here so just caching it for ease of use
-        float fixedDeltaTime = Time.fixedDeltaTime;
-
-
-        // As we move the mouse up and down the camera offset changes which is what makes the camera move up and down
-        float followOffset = Mathf.Clamp(
-            transposer.m_FollowOffset.y - (lookAxis.y * cameraVelocity.y * Time.deltaTime),
-            maxFollowOffset.x,
-            maxFollowOffset.y);
-
-        // Send the data to the transposer
-        transposer.m_FollowOffset.y = followOffset;
-
         
-        // Rotate the player on the Y axis only
-        //_rigidbody.AddRelativeTorque(0f, lookAxis.x * cameraVelocity.x * Time.fixedDeltaTime, 0f);
-
 
         xLookAxis = lookAxis.x;
-        Debug.Log($"lookAxis is  {lookAxis} and xLookAxis is {xLookAxis}");
     }
 
     private void RotatePlayer()
     {
-        Quaternion deltaRotation = Quaternion.Euler(0f, xLookAxis * cameraVelocity.x * Time.fixedDeltaTime, 0f);
+        float deltaTime = Time.deltaTime;
 
-        _rigidbody.maxAngularVelocity = maxAngularVelocity;
-        // _rigidbody.AddTorque(0f, xLookAxis * cameraVelocity.x * Time.fixedDeltaTime, 0f);
-
-        _rigidbody.AddTorque(transform.up * xLookAxis);
+        _rigidbody.transform.Rotate(0f,xLookAxis * cameraVelocity.x * deltaTime, 0f);
     }
 
 }
