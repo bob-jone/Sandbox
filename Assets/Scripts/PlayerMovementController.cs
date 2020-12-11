@@ -8,6 +8,8 @@ public class PlayerMovementController : NetworkBehaviour
 
     [SerializeField]
     private float _moveSpeed = 5f;
+    [SerializeField]
+    private float _rotationSpeed = 5f;
 
     // Rigidbody on this object.
     private Rigidbody _rigidbody;
@@ -15,6 +17,10 @@ public class PlayerMovementController : NetworkBehaviour
     private ReactivePhysicsObject _rpo;
 
     private Vector3 movementVector;
+
+    private Vector2 cameraLookVector;
+
+    private float desiredRotationAngle = 0;
 
 
     // Reference to PlayerControls (and if it doesn't exist already make it exist)
@@ -39,6 +45,9 @@ public class PlayerMovementController : NetworkBehaviour
         // += means subscribe to event so when the player move is performed we want to get the Vector2 value
         Controls.Player.Move.performed += ctx => OnMove(ctx.ReadValue<Vector2>());
         Controls.Player.Move.canceled += ctx => OnMove(ctx.ReadValue<Vector2>());
+
+        Controls.Player.Look.performed += ctx => OnLook(ctx.ReadValue<Vector2>());
+        Controls.Player.Look.canceled += ctx => OnLook(ctx.ReadValue<Vector2>());
     }
 
     public override void OnStartServer()
@@ -67,7 +76,13 @@ public class PlayerMovementController : NetworkBehaviour
     private void OnMove(Vector2 context)
     {
         movementVector = context;
-        Debug.Log($"Set movement vector to " + context);
+        Debug.Log($"Set movementVector to " + context);
+    }
+
+    private void OnLook(Vector2 context)
+    {
+        cameraLookVector = context;
+        Debug.Log($"Set the cameraLookVector to " + context);
     }
 
     private void CheckMove()
@@ -89,15 +104,44 @@ public class PlayerMovementController : NetworkBehaviour
             CmdSendInput(direction);
     }
 
+    [ClientRpc]
+    private void PlayerRotation()
+    {
+        // Rotation stuff
+
+        var cameraForewardDirection = Camera.main.transform.forward;
+        Debug.DrawRay(Camera.main.transform.position, cameraForewardDirection * 10, Color.red);
+        var directionToMoveIn = Vector3.Scale(cameraForewardDirection, (Vector3.right + Vector3.forward));
+        Debug.DrawRay(Camera.main.transform.position, directionToMoveIn * 10, Color.blue);
+
+        desiredRotationAngle = Vector3.Angle(transform.forward, directionToMoveIn);
+        var crossProduct = Vector3.Cross(transform.forward, directionToMoveIn).y;
+        if (crossProduct < 0)
+        {
+            desiredRotationAngle *= -1;
+        }
+
+        if (desiredRotationAngle > 10 || desiredRotationAngle < -10)
+        {
+            _rigidbody.transform.Rotate(Vector3.up * desiredRotationAngle * _rotationSpeed * Time.deltaTime);
+        }
+    }
+
     private void ProcessInput(Vector3 input)
     {
-        //Add force first.
-        // input *= _moveSpeed;
+        PlayerRotation();
+
+        // Movement stuff
+
+        Vector3 right = _rigidbody.transform.right;
+        Vector3 forward = _rigidbody.transform.forward;
+        right.y = 0f;
+        forward.y = 0f;
+
+        Vector3 adjustedInput = right.normalized * input.x + forward.normalized * input.z;
 
         //Apply to rigidbody.
-        // _rigidbody.AddForce(input, ForceMode.Force);
-        _rigidbody.MovePosition(transform.position + Time.deltaTime * _moveSpeed *
-                transform.TransformDirection(input.x, 0f, input.z));
+        _rigidbody.AddForce(adjustedInput * _moveSpeed, ForceMode.Force);
     }
 
     [Command]

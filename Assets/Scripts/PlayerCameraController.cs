@@ -22,7 +22,7 @@ public class PlayerCameraController : NetworkBehaviour
 
     private void OnEnable()
     {
-
+        Cursor.lockState = CursorLockMode.Locked;
     }
     [ClientCallback]
     private void OnDisable()
