@@ -15,7 +15,7 @@ public class Character : NetworkBehaviour
     public override void OnStartServer()
     {
         base.OnStartServer();
-        if (!base.hasAuthority && base.isServer)
+        if (!base.hasAuthority && base.isServer && base.isServerOnly)
             StartCoroutine(__SelfDestruct(3f));
     }
 

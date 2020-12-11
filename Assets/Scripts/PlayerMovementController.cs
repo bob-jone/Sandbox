@@ -2,39 +2,20 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Mirror;
-using System;
-using UnityEngine.InputSystem;
-using Cinemachine;
 
 public class PlayerMovementController : NetworkBehaviour
 {
-    #region Serialized.
-    // How much force to apply towards move direction.
-    [Tooltip("How much force to apply towards move direction.")]
-    [SerializeField]
-    private float _playerSpeed = 5f;
-
-    // Smooth rotations
-    [SerializeField]
-    private float _turnSmoothTime = 0.1f;
-    private float _turnSmoothVelocity;
 
     [SerializeField]
-    private float rotationSpeed = 20f;
+    private float _moveSpeed = 5f;
 
-    [SerializeField]
-    private CinemachineFreeLook freeLookCamera = null;
-    #endregion
-
-    #region Private.
     // Rigidbody on this object.
     private Rigidbody _rigidbody;
     // ReactivePhysicsObject on this object
     private ReactivePhysicsObject _rpo;
 
-    private Vector2 inputVector;
+    private Vector3 movementVector;
 
-    private float desiredRotationAngle = 0;
 
     // Reference to PlayerControls (and if it doesn't exist already make it exist)
     private PlayerControls controls;
@@ -48,7 +29,6 @@ public class PlayerMovementController : NetworkBehaviour
             }
         }
     }
-    #endregion
 
     public override void OnStartAuthority()
     {
@@ -61,18 +41,19 @@ public class PlayerMovementController : NetworkBehaviour
         Controls.Player.Move.canceled += ctx => OnMove(ctx.ReadValue<Vector2>());
     }
 
-    private void OnMove(Vector2 context)
-    {
-        inputVector = context;
-    }
-
     public override void OnStartServer()
     {
         base.OnStartServer();
         _rigidbody = GetComponent<Rigidbody>();
-
     }
 
+    private void FixedUpdate()
+    {
+        if (base.hasAuthority)
+            CheckMove();
+    }
+
+    [ClientCallback]
     private void OnEnable()
     {
         Controls.Enable();
@@ -83,23 +64,18 @@ public class PlayerMovementController : NetworkBehaviour
         Controls.Disable();
     }
 
-    private void FixedUpdate()
+    private void OnMove(Vector2 context)
     {
-        if (base.hasAuthority)
-            CheckMove();
+        movementVector = context;
+        Debug.Log($"Set movement vector to " + context);
     }
 
-    // Checks if the client wants to move.
     private void CheckMove()
     {
-        float xAxis = inputVector.x;
-        float zAxis = inputVector.y;
-
         Vector3 direction = new Vector3(
-            xAxis,
+            movementVector.x,
             0f,
-            zAxis
-            ).normalized;
+            movementVector.y);
 
         if (direction == Vector3.zero)
             return;
@@ -113,50 +89,17 @@ public class PlayerMovementController : NetworkBehaviour
             CmdSendInput(direction);
     }
 
-    public void HandleMovementDirection(Vector3 direction)
-    {
-        desiredRotationAngle = Vector3.Angle(transform.forward, direction);
-        var crossProduct = Vector3.Cross(transform.forward, direction).y;
-        if (crossProduct < 0)
-        {
-            desiredRotationAngle *= -1;
-        }
-    }
-
-    private void RotateAgent()
-    {
-        if (desiredRotationAngle > 10 || desiredRotationAngle < -10)
-        {
-            transform.Rotate(Vector3.up * desiredRotationAngle * rotationSpeed * Time.deltaTime);
-        }
-    }
-
-    // Applies an input direction to the rigidbody.
     private void ProcessInput(Vector3 input)
     {
-        var cameraForewardDirection = Camera.main.transform.forward;
-        Debug.DrawRay(Camera.main.transform.position, cameraForewardDirection * 10, Color.red);
+        //Add force first.
+        // input *= _moveSpeed;
 
-        var directionToMoveIn = Vector3.Scale(cameraForewardDirection, (Vector3.right + Vector3.forward));
-        Debug.DrawRay(Camera.main.transform.position, directionToMoveIn * 10, Color.blue);
-        directionToMoveIn = directionToMoveIn.normalized;
-
-        HandleMovementDirection(directionToMoveIn);
-
-        RotateAgent();
-
-        // Rotating rigidbody
-        /*float targetAngle = Mathf.Atan2(input.x,input.z) * Mathf.Rad2Deg + Camera.main.transform.rotation.y;
-        float angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref _turnSmoothVelocity, _turnSmoothTime);
-
-        Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
-        _rigidbody.transform.rotation = Quaternion.Euler(0f, angle, 0f);*/
-
-        _rigidbody.MovePosition(transform.position + Time.deltaTime *
-               transform.TransformDirection(input) * _playerSpeed);
+        //Apply to rigidbody.
+        // _rigidbody.AddForce(input, ForceMode.Force);
+        _rigidbody.MovePosition(transform.position + Time.deltaTime * _moveSpeed *
+                transform.TransformDirection(input.x, 0f, input.z));
     }
 
-    // Tells the server which inputs to move.
     [Command]
     private void CmdSendInput(Vector3 input)
     {
