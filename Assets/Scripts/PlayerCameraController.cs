@@ -15,7 +15,7 @@ public class PlayerCameraController : NetworkBehaviour
     // ReactivePhysicsObject on this object
     private ReactivePhysicsObject _rpo;
     // We need a reference to the cinemachine virtual camera because we need to change the values on it later
-    [SerializeField] private CinemachineFreeLook virtualCamera = null;
+    [SerializeField] private CinemachineFreeLook freeLookCamera = null;
 
 
 
@@ -52,16 +52,13 @@ public class PlayerCameraController : NetworkBehaviour
         //orbitalTransposer = virtualCamera.GetCinemachineComponent<CinemachineOrbitalTransposer>();
 
         // Set the camera to active
-        virtualCamera.gameObject.SetActive(true);
+        freeLookCamera.gameObject.SetActive(true);
 
         enabled = true;
 
         // += means subscribe to event so when the player look is performed we want to get the Vector2 value
         controls.Player.Look.performed += ctx => Look(ctx.ReadValue<Vector2>());
         controls.Player.Look.canceled += ctx => Look(ctx.ReadValue<Vector2>());
-
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
     }
 
     public override void OnStartServer()
@@ -72,8 +69,8 @@ public class PlayerCameraController : NetworkBehaviour
 
     private void FixedUpdate()
     {
-        if (base.hasAuthority)
-            RotatePlayer();
+        /*if (base.hasAuthority)
+            RotatePlayer();*/
     }
 
 
@@ -93,16 +90,12 @@ public class PlayerCameraController : NetworkBehaviour
     // Actual logic for moving the camera
     private void Look(Vector2 lookAxis)
     {
-        
-
         xLookAxis = lookAxis.x;
     }
-
     private void RotatePlayer()
     {
         float deltaTime = Time.deltaTime;
 
         _rigidbody.transform.Rotate(0f,xLookAxis * cameraVelocity.x * deltaTime, 0f);
     }
-
 }
