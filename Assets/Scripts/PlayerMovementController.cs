@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Mirror;
+using Cinemachine;
 
 public class PlayerMovementController : NetworkBehaviour
 {
@@ -42,12 +43,13 @@ public class PlayerMovementController : NetworkBehaviour
         _rigidbody = GetComponent<Rigidbody>();
         _rpo = GetComponent<ReactivePhysicsObject>();
 
+
         // += means subscribe to event so when the player move is performed we want to get the Vector2 value
         Controls.Player.Move.performed += ctx => OnMove(ctx.ReadValue<Vector2>());
         Controls.Player.Move.canceled += ctx => OnMove(ctx.ReadValue<Vector2>());
 
-        Controls.Player.Look.performed += ctx => OnLook(ctx.ReadValue<Vector2>());
-        Controls.Player.Look.canceled += ctx => OnLook(ctx.ReadValue<Vector2>());
+        /*Controls.Player.Look.performed += ctx => OnLook(ctx.ReadValue<Vector2>());
+        Controls.Player.Look.canceled += ctx => OnLook(ctx.ReadValue<Vector2>());*/
     }
 
     public override void OnStartServer()
@@ -76,14 +78,14 @@ public class PlayerMovementController : NetworkBehaviour
     private void OnMove(Vector2 context)
     {
         movementVector = context;
-        Debug.Log($"Set movementVector to " + context);
+        // Debug.Log($"Set movementVector to " + context);
     }
 
-    private void OnLook(Vector2 context)
+    /*private void OnLook(Vector2 context)
     {
         cameraLookVector = context;
         Debug.Log($"Set the cameraLookVector to " + context);
-    }
+    }*/
 
     private void CheckMove()
     {
@@ -104,18 +106,18 @@ public class PlayerMovementController : NetworkBehaviour
             CmdSendInput(direction);
     }
 
-    [ClientRpc]
+    // Rotation stuff
     private void PlayerRotation()
     {
-        // Rotation stuff
-
-        var cameraForewardDirection = Camera.main.transform.forward;
+        // This code all works but it references the main camera and gets fucked up in multiplayer
+        /*var cameraForewardDirection = Camera.main.transform.forward;
         Debug.DrawRay(Camera.main.transform.position, cameraForewardDirection * 10, Color.red);
         var directionToMoveIn = Vector3.Scale(cameraForewardDirection, (Vector3.right + Vector3.forward));
         Debug.DrawRay(Camera.main.transform.position, directionToMoveIn * 10, Color.blue);
-
+        
         desiredRotationAngle = Vector3.Angle(transform.forward, directionToMoveIn);
         var crossProduct = Vector3.Cross(transform.forward, directionToMoveIn).y;
+
         if (crossProduct < 0)
         {
             desiredRotationAngle *= -1;
@@ -124,12 +126,13 @@ public class PlayerMovementController : NetworkBehaviour
         if (desiredRotationAngle > 10 || desiredRotationAngle < -10)
         {
             _rigidbody.transform.Rotate(Vector3.up * desiredRotationAngle * _rotationSpeed * Time.deltaTime);
-        }
+        }*/
+
     }
 
     private void ProcessInput(Vector3 input)
     {
-        PlayerRotation();
+        // PlayerRotation();
 
         // Movement stuff
 

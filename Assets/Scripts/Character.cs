@@ -12,6 +12,7 @@ public class Character : NetworkBehaviour
             OfflineGameplayDependencies.SpawningCanvas.Show();
     }
 
+
     public override void OnStartServer()
     {
         base.OnStartServer();
